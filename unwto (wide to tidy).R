@@ -1,3 +1,5 @@
+#this script will transform UNWTO's data from UNstats, which is particularly useful if you want to get arrival and departure statistics from certain countries
+
 
 library(tidyverse)
 library(readxl)
@@ -134,4 +136,4 @@ v2
 
 ggarrange(v,v2)
 
-ggplotly(v)
+
