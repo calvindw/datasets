@@ -46,37 +46,17 @@ df <- df %>% mutate (Year = as.Date(Year))
 df <- df %>% mutate_at(vars(Value), funs(as.numeric))
 
 #plot it
-#this will create a vector to filter data (optional)
-aspac <- c( "Brunei  Darussalam",                 
-            "Malaysia",                           
-            "Filipina",                           
-            "Singapura",                          
-            "Thailand",                           
-            "Vietnam",                           
-            "Hongkong",                           
-            "India",                              
-            "Jepang",                             
-             "Korea   Selatan",                    
-            "Pakistan",                           
-            "Bangladesh",                         
-            "Srilanka",                           
-            "Taiwan",                             
-            "Tiongkok   / Cina",                  
-            "Australia",                          
-             "Selandia   Baru")
-
-
-v <- df %>% 
-   #dplyr::filter(str_detect(Nationality,paste(aspac, collapse = "|")))%>%  
-   ggplot(., aes(x=Year, y=Value, fill=Nationality)) + 
+v <- df %>%  
+  ggplot(., aes(x=Year, y=Value, fill=Nationality)) + 
   geom_bar(stat="identity")+
   xlab("Years") + 
   ggtitle("Tourist Arrivals in Indonesia based on Country of Origin")+
   theme_minimal()+
-  facet_wrap(.~Nationality, scales="free")+
-  scale_y_continuous(labels = comma)
-  
+  facet_wrap(.~Nationality,scales = "free")+
+  scale_y_continuous(labels = comma)+
+  theme(legend.position = "none") 
+ 
 ggplotly(v)
 
-#to fix the scale
+#to fix the scale in facet_wrap
 ggarrange(v)
