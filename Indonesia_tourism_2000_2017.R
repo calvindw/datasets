@@ -24,7 +24,7 @@ df <- df[-c(1:3,22,26,44:56),]
 df <- df %>% gather(-Kebangsaan, key=Years, value=Value)
 
 #clean value column
-df <- df %>% mutate_at(vars(Kebangsaan), str_replace_all,"Â", "")
+df <- df %>% mutate_at(vars(Kebangsaan), str_replace_all,"Â", "") #double check whether the character is really "Â", as it seems an encoding problem.
 df <- df %>% mutate_at(vars(Value), str_replace_all,"Â", "")
 df <- df %>% mutate_at(vars(Value), str_replace_all,"-", "0")
 df <- df %>% mutate_at(vars(Value), str_replace_all," ", "")
@@ -45,7 +45,9 @@ df <- df %>% mutate (Year = as.Date(Year))
 #change Value column into numeric
 df <- df %>% mutate_at(vars(Value), funs(as.numeric))
 
-#plot it
+
+
+#if no error message, plot it:
 v <- df %>%  
   ggplot(., aes(x=Year, y=Value, fill=Nationality)) + 
   geom_bar(stat="identity")+
