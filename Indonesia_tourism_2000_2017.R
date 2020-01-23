@@ -96,4 +96,4 @@ animation <- static_plot + transition_time(as.integer(Year))  +
   #transition_states(Nationality, transition_length = 3, state_length = 1, wrap = FALSE)+
   labs(title = "Tourist Arrivals in Indonesia. Year: {frame_time}")
 
-animate(animation,fps = 4)
+animate(animation,fps = 3, end_pause = 60)
