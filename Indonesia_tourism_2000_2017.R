@@ -7,6 +7,8 @@ library(rvest)
 library(readxl)
 library(plotly)
 library(scales)
+library(egg) #for ggarrange
+library(gganimate) #install.packages('pkg') and install.packages('gifski') if you are getting errors
 
 #get the data from the website
 df <- htmltab("https://www.bps.go.id/statictable/2014/09/08/1394/wisatawan-mancanegara-yang-datang-ke-indonesia-menurut-kebangsaan-2000-2017.html", rm_nodata_cols = F, which=4)
@@ -63,7 +65,7 @@ v <- df %>%
   scale_y_continuous(labels = comma)+
   theme(legend.position = "none") 
  
-ggplotly(v)
+ggplotly(v) 
 
 #to fix the scale in facet_wrap
 ggarrange(v)
