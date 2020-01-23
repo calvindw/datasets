@@ -45,7 +45,12 @@ df <- df %>% mutate (Year = as.Date(Year))
 #change Value column into numeric
 df <- df %>% mutate_at(vars(Value), funs(as.numeric))
 
-
+#create a rank (will be used for animation)
+df_formatted <- df %>% group_by(Year, Nationality) %>% 
+  summarise(Value = sum(Value)) %>% 
+  mutate(rank = rank(-Value)) %>% 
+  ungroup() %>% 
+  filter(rank <= 20) 
 
 #if no error message, plot it:
 v <- df %>%  
@@ -62,3 +67,33 @@ ggplotly(v)
 
 #to fix the scale in facet_wrap
 ggarrange(v)
+
+##animation
+static_plot <- df_formatted %>% 
+  ggplot(.)+
+  aes(x=rank, group=Nationality, fill=Nationality)+
+  geom_bar(aes(y=Value, fill=Nationality, group=Nationality), stat="identity")+
+  geom_text(aes(y = 0, label = Nationality, hjust = 1), size=5)+
+  geom_text(aes(y = Value, label = scales::comma(Value), hjust = 0), size = 5)+
+  scale_x_reverse()+
+  xlab("Country") + 
+  ggtitle("Tourist Arrivals in Indonesia based on Country of Origin (2000-2017)")+
+  theme_minimal()+
+  theme(axis.line=element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks=element_blank(),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        legend.position = "none",
+        plot.margin = margin(0, 2, 0, 5, "cm"),
+        plot.title = element_text(size = 14, hjust = 0.5, face = "bold",
+                                  colour = "black", vjust = 0))+
+  coord_flip(clip="off")
+
+
+animation <- static_plot + transition_time(as.integer(Year))  +
+  #transition_states(Nationality, transition_length = 3, state_length = 1, wrap = FALSE)+
+  labs(title = "Tourist Arrivals in Indonesia. Year: {frame_time}")
+
+animate(animation,fps = 4)
