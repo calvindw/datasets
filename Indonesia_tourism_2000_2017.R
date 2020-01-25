@@ -166,7 +166,7 @@ static_plot <- df_formatted_flag %>%
     geom_bar(aes(y=Value, fill=Nationality, group=Nationality), stat="identity")+
     geom_text(aes(y = 0, label = Nationality, hjust = 1), size=5)+
     geom_text(aes(y = max(Value)/2, label = scales::comma(Value)), size = 5)+
-    geom_flag(aes(y = min(Value)/2, country=iso2c))+ 
+    geom_flag(aes(y = max(Value)/10, country=iso2c))+ 
   scale_x_reverse()+
   xlab("Country") + 
   ggtitle("Tourist Arrivals in Indonesia based on Country of Origin (2000-2017)")+
