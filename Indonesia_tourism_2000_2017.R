@@ -61,7 +61,7 @@ df <- df %>% mutate_at(vars(Nationality), str_replace_all,
 
 
 #unpivot
-df <- df %>% gather(-Nationality,-iso3c, key=Years, value=Value)
+df <- df %>% gather(-Nationality, key=Years, value=Value)
 
 #clean value column
 df <- df %>% mutate_at(vars(Value), str_replace_all,"Â", "")
