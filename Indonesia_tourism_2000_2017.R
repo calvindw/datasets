@@ -56,7 +56,7 @@ df <- df %>% mutate_at(vars(Nationality), str_replace_all,
                              "Inggris"= "The United Kingdom",
                              "Rusia" = "Russia",
                              "Eropa   Lainnya" = "Other Europe",
-                             "Lainnya   (Timur Tengah dan Afrika)" = "Other (Middle East and Africa)"))
+                             "Lainnya   [(]Timur Tengah dan Afrika[)]" = "Other (Middle East and Africa)"))
 
 #put country code (optional)
 df$iso3c <- countrycode(df$Nationality, 'country.name.en', 'iso3c')
@@ -150,4 +150,4 @@ static_plot <- df_formatted %>%
 animation <- static_plot + transition_time(as.integer(Year))  +
   labs(title = "Tourist Arrivals in Indonesia. Year: {frame_time}")
 
-animate(animation,fps = 3, end_pause = 60)
+animate(animation,fps = 10,end_pause = 60, duration=30)
