@@ -58,8 +58,7 @@ df <- df %>% mutate_at(vars(Nationality), str_replace_all,
                              "Eropa   Lainnya" = "Other Europe",
                              "Lainnya   [(]Timur Tengah dan Afrika[)]" = "Other (Middle East and Africa)"))
 
-#put country code (optional)
-df$iso3c <- countrycode(df$Nationality, 'country.name.en', 'iso3c')
+
 
 #unpivot
 df <- df %>% gather(-Nationality,-iso3c, key=Years, value=Value)
@@ -106,6 +105,11 @@ df_formatted <- df %>% group_by(Year, Nationality) %>%
   ungroup() %>% 
   filter(rank <= 20) 
 
+#add iso2c column (used for flag animation with geom_flag)
+df_formatted_flag <- df_formatted %>% 
+  mutate(iso2c = countrycode(Nationality, origin='country.name.en', destination='iso2c'))  %>% 
+  mutate(iso2c = tolower(iso2c)) %>%
+  filter(iso2c != "NA")
 
 #if no error message, plot it:
 v <- df %>%  
@@ -123,7 +127,7 @@ ggplotly(v)
 #to fix the scale in facet_wrap
 ggarrange(v)
 
-##animation
+##animation (without flag)
 static_plot <- df_formatted %>% 
   ggplot(.)+
   aes(x=rank, group=Nationality, fill=Nationality)+
@@ -145,6 +149,40 @@ static_plot <- df_formatted %>%
         plot.title = element_text(size = 14, hjust = 0.5, face = "bold",
                                   colour = "black", vjust = 0))+
   coord_flip(clip="off")
+
+
+animation <- static_plot + transition_time(as.integer(Year))  +
+  labs(title = "Tourist Arrivals in Indonesia. Year: {frame_time}")
+
+animate(animation,fps = 10,end_pause = 60, duration=30)
+
+
+##animation with flag
+#the key is to ensure each data has a corresponding country name variable in iso2c and in lowercase format
+
+static_plot <- df_formatted_flag %>%
+  ggplot(.) +
+  aes(x=rank, group=Nationality, fill=Nationality)+
+    geom_bar(aes(y=Value, fill=Nationality, group=Nationality), stat="identity")+
+    geom_text(aes(y = 0, label = Nationality, hjust = 1), size=5)+
+    geom_text(aes(y = max(Value)/2, label = scales::comma(Value)), size = 5)+
+    geom_flag(aes(y = -1, country=iso2c))+ 
+  scale_x_reverse()+
+  xlab("Country") + 
+  ggtitle("Tourist Arrivals in Indonesia based on Country of Origin (2000-2017)")+
+  theme_minimal()+
+  theme(axis.line=element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks=element_blank(),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        legend.position = "none",
+        plot.margin = margin(0, 2, 0, 5, "cm"),
+        plot.title = element_text(size = 14, hjust = 0.5, face = "bold",
+                                  colour = "black", vjust = 0))+
+  coord_flip(clip="off")
+
 
 
 animation <- static_plot + transition_time(as.integer(Year))  +
