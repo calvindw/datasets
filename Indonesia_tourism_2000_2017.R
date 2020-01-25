@@ -10,8 +10,9 @@ library(scales)
 library(egg) #for ggarrange
 library(gganimate) #install.packages('pkg') and install.packages('gifski') if you are getting errors
 
-#get the data from the website
+
 df <- htmltab("https://www.bps.go.id/statictable/2014/09/08/1394/wisatawan-mancanegara-yang-datang-ke-indonesia-menurut-kebangsaan-2000-2017.html", rm_nodata_cols = F, which=4)
+
 
 #get column names from the second row
 names(df) <- lapply(df[2, ], as.character)
@@ -22,37 +23,89 @@ rownames(df) <- 1:nrow(df)
 #remove rows we don't need
 df <- df[-c(1:3,22,26,44:56),]
 
+#change column language
+df <- df %>% rename(Nationality = Kebangsaan)
+
+#clean country names from encoding problem
+df <- df %>% mutate_at(vars(Nationality), str_replace_all,"Â", "")
+
+#change names into english
+df <- df %>% mutate_at(vars(Nationality), str_replace_all,
+                 pattern = c("Brunei  Darussalam"="Brunei Darussalam",             
+                             "Filipina" = "The Philippines",               
+                             "Singapura" = "Singapore",                     
+                             "Jepang" = "Japan",
+                             "Korea   Selatan" = "South Korea",
+                             "Srilanka"  = "Sri Lanka",
+                              "Tiongkok   / Cina" = "China",
+                             "Selandia   Baru"= "New Zealand",
+                             "Asia   Pasifik Lainnya" = "Others (Asia Pacific)",
+                             "Amerika   Serikat"="United States of America",      
+                             "Kanada" = "Canada",                        
+                             "Amerika   Lainnya" = "Other (Americas)",
+                             "Belgia" = "Belgium",
+                             "Perancis" = "France",
+                             "Jerman" = "Germany",
+                             "Italia" = "Italy",
+                             "Belanda" = "Netherlands",
+                             "Spanyol"= "Spain",                       
+                             "Swedia" = "Sweden",                        
+                             "Norwegia" = "Norway",                        
+                             "Finlandia" ="Finland",
+                             "Swiss" = "Switzerland",
+                             "Inggris"= "The United Kingdom",
+                             "Rusia" = "Russia",
+                             "Eropa   Lainnya" = "Other Europe",
+                             "Lainnya   (Timur Tengah dan Afrika)" = "Other (Middle East and Africa)"))
+
+#put country code (optional)
+df$iso3c <- countrycode(df$Nationality, 'country.name.en', 'iso3c')
+
 #unpivot
-df <- df %>% gather(-Kebangsaan, key=Years, value=Value)
+df <- df %>% gather(-Nationality,-iso3c, key=Years, value=Value)
 
 #clean value column
-df <- df %>% mutate_at(vars(Kebangsaan), str_replace_all,"Â", "") #double check whether the character is really "Â", as it seems an encoding problem.
 df <- df %>% mutate_at(vars(Value), str_replace_all,"Â", "")
 df <- df %>% mutate_at(vars(Value), str_replace_all,"-", "0")
 df <- df %>% mutate_at(vars(Value), str_replace_all," ", "")
 df$Value <- str_trim(df$Value, side="both")
-df$Kebangsaan <- str_trim(df$Kebangsaan, side="both")
+df$Nationality <- str_trim(df$Nationality, side="both")
 
-#change country column into factor
-df <- df %>% mutate(Nationality = as_factor(Kebangsaan))
 
-df <- df %>% select(-Kebangsaan)
+#change coutry names into factor
+df <- df %>% mutate(Nationality = as_factor(Nationality))
+
 
 #create helper columns to create a year column
 df <- df %>% mutate(Year= paste0(Years,"-", "1","-","1")) 
 
 #change into year
 df <- df %>% mutate (Year = as.Date(Year))
+df <- df %>% select(-Years)
 
 #change Value column into numeric
 df <- df %>% mutate_at(vars(Value), funs(as.numeric))
 
-#create a rank (will be used for animation)
+#aggregate to see who contributed the biggest tourists
+x <- df %>% group_by(Nationality) %>% summarise(Value = sum(Value)) %>% arrange(desc(Value))
+
+#reorder nationality based on the biggest contributor
+fct_data <- as_vector(x$Nationality)
+
+#apply this to the dataframe
+df$Nationality <- factor(df$Nationality, levels=fct_data)
+
+df$Year  <- year(df$Year)
+
+df %>% mutate(Value = as.integer(Value))
+
+#create a rank
 df_formatted <- df %>% group_by(Year, Nationality) %>% 
   summarise(Value = sum(Value)) %>% 
   mutate(rank = rank(-Value)) %>% 
   ungroup() %>% 
   filter(rank <= 20) 
+
 
 #if no error message, plot it:
 v <- df %>%  
