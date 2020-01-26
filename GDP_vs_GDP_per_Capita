@@ -1,0 +1,55 @@
+#this code will make a scatterplot animation of gdp vs gdp per capita from world bank data
+
+library(tidyverse)
+library(lubridate)
+library(wbstats)
+library(plotly)
+library(scales)
+library(gganimate)
+library(egg)
+library(ggflags)
+options(scipen=999)
+
+#search gdp from world bank stats and put into a dataframe (optional)
+#gdp_search <- wbsearch(pattern = "gdp")
+
+#pull gdp and gdp per capita data
+gdp <- wb(country="countries_only",
+          indicator = c('NY.GDP.MKTP.CD','NY.GDP.PCAP.CD'),
+          startdate = 1960,
+          enddate = 2020)
+
+#convert the indicator as a factor column
+gdp <- gdp %>% mutate(indicator= as_factor(indicator))
+
+#use spread function because there are keys we want to transform into wide data
+df <- gdp %>% select(-indicatorID) %>% spread(key=indicator,value=value)
+
+#change the column names
+df <- df %>% rename(GDP=`GDP (current US$)`,GDP_per_capita=`GDP per capita (current US$)`)
+
+#transform the date column into year column
+df <- df %>% mutate(Year= paste0(date,"-", "1","-","1")) %>% 
+  mutate (Year = as.Date(Year)) 
+
+#make a static plot
+static_plot <- df %>% ggplot(.) +
+  aes(x=GDP, y=GDP_per_capita, color=country, size=GDP)+
+  geom_point(alpha=0.7) +
+  theme_minimal()+
+  scale_y_continuous(label= comma)+
+  scale_x_continuous(label= comma)+
+  theme(legend.position = "none")+
+  scale_color_viridis_d()
+  
+#use log transformation on x and y axis to make the distribution more normal
+static_plot_log <- static_plot + scale_x_log10(label= comma)+scale_y_log10(label= comma)
+
+#see the comparison
+ggarrange(static_plot,static_plot_log)
+
+#animate 
+animation <- static_plot_log + transition_time(as.Date(Year))  +
+  labs(title = "GDP and GDP Per Capita 2001-2018 (current $US). Year: {frame_time}")
+
+animate(animation,fps = 10,end_pause = 60, duration=30)
