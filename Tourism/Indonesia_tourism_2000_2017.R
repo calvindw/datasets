@@ -10,6 +10,11 @@ library(scales)
 library(egg) #for ggarrange
 library(gganimate) #install.packages('pkg') and install.packages('gifski') if you are getting errors
 
+#first time install for ggflags: you need to install devtools to install the package from github as it's not available on CRAN
+#install.packages('devtools')
+#library('devtools')
+#install_github("ellisp/ggflags")
+library(ggflags)
 
 df <- htmltab("https://www.bps.go.id/statictable/2014/09/08/1394/wisatawan-mancanegara-yang-datang-ke-indonesia-menurut-kebangsaan-2000-2017.html", rm_nodata_cols = F, which=4)
 
