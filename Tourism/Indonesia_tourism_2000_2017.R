@@ -81,7 +81,7 @@ df <- df %>% mutate(Nationality = as_factor(Nationality))
 
 
 #create helper columns to create a year column
-df <- df %>% mutate(Year= paste0(Years,"-", "1","-","1")) 
+df <- df %>% mutate(Year= paste0(Years,"-", "12","-","31")) 
 
 #change into year
 df <- df %>% mutate (Year = as.Date(Year))
