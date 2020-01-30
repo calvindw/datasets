@@ -8,6 +8,7 @@ library(plotly)
 library(scales)
 library(lubridate)
 library(egg)
+library(ggflags)
 
 #check http://data.un.org/Search.aspx?q=tourism for the latest data
 temp.file <- paste(tempfile(),".xlsx",sep = "")
