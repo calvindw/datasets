@@ -8,7 +8,8 @@ library(plotly)
 library(scales)
 library(lubridate)
 library(egg)
-library(ggflags)
+library(ggflags) #devtools::install_github("rensa/ggflags")
+library(gganimate) 
 
 #check http://data.un.org/Search.aspx?q=tourism for the latest data
 temp.file <- paste(tempfile(),".xlsx",sep = "")
