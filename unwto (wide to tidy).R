@@ -9,23 +9,26 @@ library(scales)
 library(lubridate)
 library(egg)
 
+#check http://data.un.org/Search.aspx?q=tourism for the latest data
 temp.file <- paste(tempfile(),".xlsx",sep = "")
-download.file("http://data.un.org/Handlers/DocumentDownloadHandler.ashx?id=401&t=bin", temp.file, mode="wb")
+download.file("http://data.un.org/Handlers/DocumentDownloadHandler.ashx?id=409&t=bin", temp.file, mode="wb")
 
-df <- read_excel(temp.file, skip = 5)
+#read excel file
+df <- read_excel(temp.file)
 
-df <- df %>% select(-NOTES,-2) 
+#deselect columns we don't need
+df <- df %>% select(-NOTES,-3) 
 
 #make a copy of COUNTRY column 
-df <- df %>% mutate(variables = COUNTRY)
+df <- df %>% mutate(Variables = COUNTRY)
 
 
 #reorder the dataframe, use ncol(df) to count the total number of index, 
 #substract with one as the new column was moved to second column
 #so it will retain the number of columns incase the year columns are updated
-df <- df %>% select(COUNTRY,variables,3:ncol(df)-1)
+df <- df %>% select(Country=COUNTRY,Variables,3:ncol(df)-1)
 
-#create a vector of variables to be replaced with NA
+#create a vector of Variables to be replaced with NA
 vars_to_replace <- c("Arrivals - Thousands", 
                      "Inbound tourism",
                      "Outbound tourism",
@@ -37,103 +40,87 @@ vars_to_replace <- c("Arrivals - Thousands",
                      "Tourism expenditure in other countries - US$ Mn",
                      "Source: World Tourism Organization (UNWTO)")
 
-#clean the rows of COUNTRY before using lacf
-df <- df %>% mutate(COUNTRY = case_when(COUNTRY %in% vars_to_replace ~ NA_character_, 
-                                        TRUE ~ COUNTRY))
+#clean the rows of Country before using lacf
+df <- df %>% mutate(Country = case_when(Country %in% vars_to_replace ~ NA_character_, 
+                                        TRUE ~ Country))
 
-#use na.locf to fill the blanks at COUNTRY column using na.locf
-df <- df %>% mutate_at(vars(COUNTRY), funs(na.locf))
+#use na.locf to fill the blanks at Country column using na.locf
+df <- df %>% mutate_at(vars(Country), funs(na.locf))
 
 #use distinct() to make a filter
-mask <- df %>% distinct(COUNTRY) %>% as_vector()
+mask <- df %>% distinct(Country) %>% as_vector()
 
-#filter country names
-df <- df %>% filter(!str_detect(variables, paste(mask, collapse = "|")))
+#filter Country names
+df <- df %>% filter(!str_detect(Variables, paste(mask, collapse = "|")))
 
 #unpivot
-df<- df %>% gather(-COUNTRY, -Series,-variables, key="years", value="value")
+df<- df %>% gather(-Country, -Series,-Variables, key="Year", value="Value")
 
-#change value column as numeric
-df <- df %>% mutate(value = as.numeric(value))
+#change Value column as numeric
+df <- df %>% mutate(Value = as.numeric(Value))
 
 #add dummy day and month column 
-df <- df %>% mutate(Month = "1", Day = "1")
+df <- df %>% mutate(Month = "12", Day = "31")
 
-#use paste0 with "-" to create separator on the year column
-df <- df %>% mutate(Years = paste0(years,"-", Month,"-",Day))
-
-#impute missing values
-# solution source: https://stackoverflow.com/questions/30637522/impute-variables-within-a-data-frame-group-by-factor-column
-# mutate_each is depreceated 
-
-df <- df %>%
-  group_by(COUNTRY,years) %>%
-  mutate_each(funs(replace(., which(is.na(.)), 
-                    median(., na.rm=TRUE))), 
-              starts_with('value'))
-
-
-#change it into date format
-df <- df %>% mutate(Years = as.Date(Years))
-
-#deselect the dummy columns
-df <- df %>% select(-years,-Month,-Day)
+df <- df %>% mutate(Year = as.integer(Year))
 
 #convert misc characters into  to zeros
 df <- df %>%  replace(., is.na(.), "0")
 
-#convert value column into numeric
-df <- df %>% mutate_at(vars(value), as.numeric)
+#convert Value column into numeric
+df <- df %>% mutate_at(vars(Value), as.numeric)
 
-
-#change country, variables, and series into factor
-df <- df %>% mutate_at(vars(COUNTRY,variables,Series), as_factor)
-
-
-#filter
-asean <- c("INDONESIA", "MALAYSIA","THAILAND",
-           "PHILIPPINES", "VIET NAM", 
-           "LAO PEOPLE'S DEMOCRATIC REPUBLIC", 
-           "MYANMAR","BRUNEI DARUSSALAM", 
-           "SINGAPORE", "CAMBODIA")
+#change Country, Variables, and series into factor
+df <- df %>% mutate_at(vars(Country,Variables,Series), as_factor)
 
 #filter arrival data
-df_arrival <- df %>% dplyr::filter(str_detect(variables, "Arrivals - Thousands")
-                                   )
+df_arrival <- df %>% dplyr::filter(str_detect(Variables, "Arrivals - Thousands"))
 
-#filter asean countries
-df_arrival_asean <- df_arrival %>%  dplyr::filter(str_detect(COUNTRY,paste(asean, collapse = "|")))
+#impute missing values by selecting the maximum value from Series (VF or TF)
+df_arrival <- df_arrival %>%
+  group_by(Country,Year,Variables) %>% 
+  filter(Value == max(Value))
 
-#filter the series just use "TF"
-df_arrival_asean <- df_arrival_asean %>%  dplyr::filter(str_detect(Series, "TF"))
+#create a rank
+df_arrival <- df_arrival %>% group_by(Year, Country) %>% 
+  summarise(Value = sum(Value)) %>% 
+  mutate(rank = rank(-Value)) %>% 
+  ungroup() 
 
-#plot it
+#add flag
+df_formatted_flag <- df_arrival %>% 
+  mutate(iso2c = countrycode(Country, origin='country.name.en', destination='iso2c'))  %>% 
+  mutate(iso2c = tolower(iso2c)) %>%
+  filter(iso2c != "NA")
 
-#make a label for last values
-label <- df_arrival_asean %>% filter(Years == "2017-01-01")
 
+#flag animation
+static_plot <- df_formatted_flag %>%  
+  filter(rank <= 15) %>% 
+  ggplot(.) +
+  aes(x=rank, group=Country, fill=Country)+
+  geom_bar(aes(y=Value, fill=Country, group=Country), stat="identity")+
+  geom_text(aes(y = 0, label = Country, hjust = 1), size=5)+
+  geom_text(aes(y = max(Value)/2, label = scales::comma(Value)), size = 5)+
+  geom_flag(aes(y = max(Value)/10, country=iso2c))+ 
+  scale_x_reverse()+
+  xlab("Country") + 
+  ggtitle("International Tourist Arrivals")+
+  theme_minimal()+
+  theme(axis.line=element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks=element_blank(),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        legend.position = "none",
+        plot.margin = margin(0, 2, 0, 5, "cm"),
+        plot.title = element_text(size = 14, hjust = 0.5, face = "bold",
+                                  colour = "black", vjust = 0))+
+  coord_flip(clip="off")
 
-v <- df_arrival_asean %>%  ggplot(., aes(x=Years, y=value, color=COUNTRY))+
-  geom_line(stat="identity") + 
-  ylab("Arrivals - Thousands") + 
-  xlab("Years") + 
-  ggtitle("Tourist Arrivals in Southeast Asia")+
-  scale_y_continuous(labels = comma) +
-  geom_point()+
-  geom_label(aes(label=COUNTRY),stat="identity", data=label)
-  theme_minimal()
-v
-v2 <- df_arrival_asean %>%  ggplot(., aes(x=Years, y=value, color=COUNTRY))+
-  geom_line(stat="identity") + 
-  ylab("Arrivals - Thousands") + 
-  xlab("Years") + 
-  ggtitle("Tourist Arrivals in Southeast Asia")+
-  scale_y_continuous(labels = comma) +
-  geom_point()+
-  geom_label(aes(label=comma(value)),stat="identity", data=label)
-theme_minimal()
-v2
+animation <- static_plot + transition_time(as.integer(Year))  +
+  labs(title = "International Tourist Arrivals. Year: {frame_time}")
 
-ggarrange(v,v2)
-
+animate(animation,fps = 10,end_pause = 60, duration=30)
 
