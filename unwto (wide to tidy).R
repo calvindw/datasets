@@ -61,9 +61,7 @@ df<- df %>% gather(-Country, -Series,-Variables, key="Year", value="Value")
 #change Value column as numeric
 df <- df %>% mutate(Value = as.numeric(Value))
 
-#add dummy day and month column 
-df <- df %>% mutate(Month = "12", Day = "31")
-
+#change year as integer value
 df <- df %>% mutate(Year = as.integer(Year))
 
 #convert misc characters into  to zeros
