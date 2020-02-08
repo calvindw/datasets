@@ -124,3 +124,34 @@ animation <- static_plot + transition_time(as.integer(Year))  +
 
 animate(animation,fps = 10,end_pause = 60, duration=30)
 
+
+#show only year 2018
+
+static_plot <- df_formatted_flag %>%  
+  filter(Year %in% 2018, Value != 0) %>% 
+  ggplot(.) +
+  aes(x=rank, group=Country, fill=Country)+
+  geom_bar(aes(y=Value, fill=Country, group=Country), stat="identity")+
+  geom_text(aes(y = 0, label = Country, hjust = 1), size=5)+
+  geom_text(aes(y = max(Value)/2, label = scales::comma(Value)), size = 5)+
+  geom_flag(aes(y = max(Value)/10, country=iso2c))+ 
+  scale_x_reverse()+
+  xlab("Country") + 
+  ggtitle("International Tourist Arrivals 2018")+
+  theme_minimal()+
+  theme(axis.line=element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks=element_blank(),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        legend.position = "none",
+        plot.margin = margin(0, 2, 0, 5, "cm"),
+        plot.title = element_text(size = 14, hjust = 0.5, face = "bold",
+                                  colour = "black", vjust = 0))+
+  coord_flip(clip="off")
+static_plot
+
+#save it
+ggsave(plot=static_plot, filename="plt.png", width = 20, height = 80, units = "cm")
+
