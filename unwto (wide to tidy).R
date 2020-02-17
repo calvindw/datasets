@@ -93,6 +93,18 @@ df_formatted_flag <- df_arrival %>%
   mutate(iso2c = tolower(iso2c)) %>%
   filter(iso2c != "NA")
 
+#group countries based region
+countries<- x$countries
+
+#transform the iso2c column to lowercase
+countries <- countries %>% mutate(iso2c = tolower(iso2c))
+
+#left join with formatted data
+df_formatted_flag <- left_join(x=df_formatted_flag,
+                               y=countries[,c('iso2c','region')],
+                               by='iso2c')
+
+##visualizations below
 
 #flag animation
 static_plot <- df_formatted_flag %>%  
@@ -155,3 +167,17 @@ static_plot
 #save it
 ggsave(plot=static_plot, filename="plt.png", width = 20, height = 80, units = "cm")
 
+
+#facet_wrap every country
+static_plot <- df_formatted_flag %>% 
+  filter(!(region %in% NA)) %>%
+  ggplot(.) +
+  geom_bar(aes(x=Year, y=Value, fill=region), stat="identity")+
+  ggtitle("International Tourist Arrivals 1995-2018 (Thousands)")+
+  theme_minimal()+
+  theme(legend.position = "none")+
+  facet_wrap(Country~., scales="free", ncol=10)
+
+static_plot
+
+ggsave(plot=static_plot, filename="plt.png", width =100, height=100, units = "cm", limitsize=FALSE)
