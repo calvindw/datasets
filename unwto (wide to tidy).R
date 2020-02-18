@@ -23,8 +23,6 @@ download.file("http://data.un.org/Handlers/DocumentDownloadHandler.ashx?id=409&t
 
 
 df <- read_excel(temp.file)
-#df <- read_excel("C:\\Users\\calvin\\OneDrive - navaplus.com\\R\\unwto\\unwto.xlsx")
-
 
 # Data Cleaning ====
 df <- df %>% select(-NOTES,-3) 
