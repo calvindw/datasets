@@ -24,6 +24,8 @@ download.file("http://data.un.org/Handlers/DocumentDownloadHandler.ashx?id=409&t
 
 df <- read_excel(temp.file)
 
+
+
 # Data Cleaning ====
 df <- df %>% select(-NOTES,-3) 
 
@@ -214,12 +216,10 @@ static_plot <- df_formatted_flag %>%
   coord_flip(clip="off")
 
 
-ggsave(plot=static_plot, filename="plt.png", width = 20, height = 80, units = "cm")
-
 animation <- static_plot + transition_time(as.integer(Year))  +
   labs(title = "International Tourist Arrivals (Thousands). Year: {frame_time}")
 
-animate(animation,fps = 20,end_pause = 120, duration=60, rewind=FALSE)
+animate(animation, renderer=av_renderer("unwto.mp4"), fps = 20,end_pause = 120, duration=60, rewind=FALSE)
 
 
 
@@ -280,6 +280,7 @@ df_formatted_flag <- df_departures %>%
 # Animation with flag (departures data)====
 
 static_plot <- df_formatted_flag %>%
+  #filter(Year %in% 2017, Value != 0) %>% 
   ggplot(.) +
   aes(x=rank, group=Country, fill=Country)+
   geom_bar(aes(y=Value, fill=Country, group=Country), stat="identity")+
@@ -311,3 +312,77 @@ animation <- static_plot + transition_time(as.integer(Year))  +
   labs(title = "International Tourist Departures (Thousands). Year: {frame_time}")
 
 animate(animation, renderer=av_renderer("unwto.mp4"), fps = 20,end_pause = 120, duration=60, rewind=FALSE)
+
+
+# Compare GDP per capita vs departure====
+
+library(tidyverse)
+library(lubridate)
+library(wbstats)
+library(plotly)
+library(scales)
+library(gganimate)
+library(egg)
+library(ggflags)
+options(scipen=999)
+
+#search gdp from world bank stats and put into a dataframe (optional)
+#gdp_search <- wbsearch(pattern = "gdp")
+
+#pull gdp and gdp per capita data
+gdp <- wb(country="countries_only",
+          indicator = c('NY.GDP.PCAP.CD'),
+          startdate = 2017,
+          enddate = 2020)
+gdp <- gdp %>% mutate(iso2c = tolower(iso2c))
+gdp_2017 <- gdp %>% filter(date %in% 2017) %>% select(iso2c, GDP_per_capita=value)
+
+
+#filter departure data
+df_departures <- df %>% dplyr::filter(str_detect(Variables, "Departures - Thousands"))
+
+#create a rank
+df_departures <- df_departures %>% group_by(Year, Country) %>% 
+  summarise(Value = sum(Value)) %>% 
+  mutate(rank = rank(-Value)) %>% 
+  ungroup() 
+
+#add flag
+df_formatted_flag <- df_departures %>% 
+  mutate(iso2c = countrycode(Country, origin='country.name.en', destination='iso2c'))  %>% 
+  mutate(iso2c = tolower(iso2c)) %>%
+  filter(iso2c != "NA")
+
+
+df_2017 <- df_formatted_flag %>%
+  filter(Year %in% 2017, Value != 0)
+
+df_gdp_outbound <- left_join(x=df_2017,
+                             y=gdp_2017,
+                             by="iso2c")
+
+df_gdp_outbound <- df_gdp_outbound %>% rename(outbound_tourism=Value)
+df_gdp_outbound <- df_gdp_outbound %>% filter(!is.na(GDP_per_capita))
+df_gdp_outbound <- df_gdp_outbound %>% mutate(median_GDP_pc = median(GDP_per_capita, na.rm=TRUE))
+
+#regression line
+reg<-lm(outbound_tourism~GDP_per_capita, data = df_gdp_outbound)
+coeff=coefficients(reg)
+eq = paste0("y = ", round(coeff[2],1), "*x + ", round(coeff[1],1))
+
+static_plot <- df_gdp_outbound %>%
+  mutate(log_x= log10(GDP_per_capita), log_y=log10(outbound_tourism)) %>% 
+  ggplot(.) +
+  aes(x=log_x, y=log_y, color=Country)+
+  geom_point(alpha=0.7) +
+  geom_abline(intercept=log10(8225), slope=0.2)+
+  theme_minimal()+
+  #scale_x_log10()+
+  #scale_y_log10()+
+  theme(legend.position = "none")+
+  scale_color_viridis_d()+
+  xlab("GDP per Capita")+
+  ylab("Outbound Tourism (Thousands)")
+static_plot
+
+ggplotly(static_plot)
