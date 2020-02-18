@@ -278,7 +278,7 @@ df_formatted_flag <- df_departures %>%
 # Animation with flag (departures data)====
 
 static_plot <- df_formatted_flag %>%
-  filter(Rank <= 15, Value != 0) %>% 
+  filter(rank <= 15, Value != 0) %>% 
   ggplot(.) +
   aes(x=rank, group=Country, fill=Country)+
   geom_bar(aes(y=Value, fill=Country, group=Country), stat="identity")+
