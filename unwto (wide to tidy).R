@@ -191,7 +191,6 @@ df_rank_by_region <- left_join(x=df_rank_by_region,
 # Visualization -----------------------------------------------------------
 # Animation with flag (arrival data)====
 static_plot <- df_formatted_flag %>%
-  filter(Year %in% 2018) %>% 
   ggplot(.) +
   aes(x=rank, group=Country, fill=Country)+
   geom_bar(aes(y=Value, fill=Country, group=Country), stat="identity")+
@@ -281,7 +280,6 @@ df_formatted_flag <- df_departures %>%
 # Animation with flag (departures data)====
 
 static_plot <- df_formatted_flag %>%
-  filter(Year %in% 2017, Value != 0) %>% 
   ggplot(.) +
   aes(x=rank, group=Country, fill=Country)+
   geom_bar(aes(y=Value, fill=Country, group=Country), stat="identity")+
