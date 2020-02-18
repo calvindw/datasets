@@ -219,6 +219,7 @@ animation <- static_plot + transition_time(as.integer(Year))  +
   labs(title = "International Tourist Arrivals. Year: {frame_time}")
 animate(animation,fps = 10,end_pause = 60, duration=30)
 
+animate(animation, renderer=av_renderer("unwto.mp4"), fps = 20,end_pause = 120, duration=60, rewind=FALSE)
 
 
 
