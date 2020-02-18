@@ -1,6 +1,6 @@
-#this script will transform UNWTO's data from UNstats, which is particularly useful if you want to get arrival and departure statistics from certain countries
+#this code will transform UNWTO data hosted on data.un.org, this code will focus on tourist arrivals and tourist departures data
 
-
+#Load Libraries----
 library(tidyverse)
 library(readxl)
 library(zoo)
@@ -8,17 +8,25 @@ library(plotly)
 library(scales)
 library(lubridate)
 library(egg)
-library(ggflags) #devtools::install_github("rensa/ggflags")
-library(gganimate) 
+library(gganimate)
+library(wbstats)
+library(countrycode)
+library(ggflags)
+library(ggrepel)
 
-#check http://data.un.org/Search.aspx?q=tourism for the latest data
+
+
+# Extract Data ------------------------------------------------------------
+
 temp.file <- paste(tempfile(),".xlsx",sep = "")
 download.file("http://data.un.org/Handlers/DocumentDownloadHandler.ashx?id=409&t=bin", temp.file, mode="wb")
 
-#read excel file
-df <- read_excel(temp.file)
 
-#deselect columns we don't need
+df <- read_excel(temp.file)
+#df <- read_excel("C:\\Users\\calvin\\OneDrive - navaplus.com\\R\\unwto\\unwto.xlsx")
+
+
+# Data Cleaning ====
 df <- df %>% select(-NOTES,-3) 
 
 #make a copy of COUNTRY column 
@@ -61,7 +69,9 @@ df<- df %>% gather(-Country, -Series,-Variables, key="Year", value="Value")
 #change Value column as numeric
 df <- df %>% mutate(Value = as.numeric(Value))
 
-#change year as integer value
+#add dummy day and month column 
+#df <- df %>% mutate(Month = "12", Day = "31")
+
 df <- df %>% mutate(Year = as.integer(Year))
 
 #convert misc characters into  to zeros
@@ -73,51 +83,216 @@ df <- df %>% mutate_at(vars(Value), as.numeric)
 #change Country, Variables, and series into factor
 df <- df %>% mutate_at(vars(Country,Variables,Series), as_factor)
 
-#filter arrival data
-df_arrival <- df %>% dplyr::filter(str_detect(Variables, "Arrivals - Thousands"))
 
-#impute missing values by selecting the maximum value from Series (VF or TF)
-df_arrival <- df_arrival %>%
+#impute missing values by selecting the maximum value from group 
+df <- df %>%
   group_by(Country,Year,Variables) %>% 
   filter(Value == max(Value))
 
+#filter arrival data
+df_arrival <- df %>% dplyr::filter(str_detect(Variables, "Arrivals - Thousands"))
+
+# Copy data frames ====
+
+#create a copy for bar animation
+df_formatted_flag <- df_arrival
+
+#create a copy for geom_line visualization
+df_rank_by_region <- df_arrival
+
+#create a copy for departures data
+df_departures <- df %>% dplyr::filter(str_detect(Variables, "Departures - Thousands"))
+
+
+# Get World Bank data ====
+#use wbstats to pull countries data, let's just name the object x
+#x <- wbcache()
+
+#this will create a list, subset countries from this list and just overwrite the object
+#x <- x$countries
+
+#alternatively just use a copy of the data that I uploaded to my github
+x <- read.csv2(url("https://raw.githubusercontent.com/calvindw/datasets/master/countries.csv"), stringsAsFactors =FALSE)
+
+#transform the iso2c column from x to lowercase so it can be used for left_join with country_code
+x <- x %>% mutate(iso2c = tolower(iso2c))
+
+
+# Data cleaning for reverse bar animation with geom_bar ====
+
 #create a rank
-df_arrival <- df_arrival %>% group_by(Year, Country) %>% 
+df_formatted_flag <- df_formatted_flag %>% group_by(Year, Country) %>% 
+  summarise(Value = sum(Value)) %>% 
+  mutate(rank = rank(-Value, ties.method = "first")) %>% 
+  ungroup() 
+
+#add flag
+df_formatted_flag <- df_formatted_flag %>% 
+  mutate(iso2c = countrycode(Country, origin='country.name.en', destination='iso2c'))  %>% 
+  mutate(iso2c = tolower(iso2c)) %>%
+  filter(iso2c != "NA")
+
+#left join with formatted data
+df_formatted_flag <- left_join(x=df_formatted_flag,
+                               y=x[,c('iso2c','region','income')],
+                               by='iso2c')
+
+#remove NA regions
+df_formatted_flag  <- df_formatted_flag %>% filter(!(region %in% NA))
+
+#convert into factor
+df_formatted_flag <- df_formatted_flag %>% 
+  mutate(Region = as_factor(region), Country = as_factor(Country)) %>% 
+  select(-region)
+
+
+# Data cleaning for geom_line facet_wrap plot ====
+
+#group by year, region, country (for geom_line facet_wrap)
+df_rank_by_region <- df_rank_by_region %>% ungroup()
+
+#country code
+df_rank_by_region <- df_rank_by_region %>% 
+  mutate(iso2c = countrycode(Country, origin='country.name.en', destination='iso2c'))  %>% 
+  mutate(iso2c = tolower(iso2c)) %>%
+  filter(iso2c != "NA")
+
+#left join with world bank data
+df_rank_by_region <- left_join(x=df_rank_by_region,
+                                      y=x[,c('iso2c','region','income')],
+                                      by='iso2c')
+#filter out NA values
+df_rank_by_region <- df_rank_by_region %>% filter(region != "NA")
+
+#rename region
+df_rank_by_region <- df_rank_by_region %>% rename(Region = region)
+
+#filter out zero values
+df_rank_by_region <- df_rank_by_region %>% 
+  filter((!Value %in% 0))
+
+#make a rank based on year, region, country
+df_rank_by_region <- df_rank_by_region %>% group_by(Year, Region,Country) %>% 
+  summarise(Value = sum(Value)) %>% 
+  mutate(rank = rank(-Value, ties.method = "first")) %>% 
+  ungroup() 
+
+#as the country code was removed due to summarsation, make another 
+df_rank_by_region <- df_rank_by_region %>% 
+  mutate(iso2c = countrycode(Country, origin='country.name.en', destination='iso2c'))  %>% 
+  mutate(iso2c = tolower(iso2c)) %>%
+  filter(iso2c != "NA")
+
+#left join to get income factor
+df_rank_by_region <- left_join(x=df_rank_by_region,
+                               y=x[,c('iso2c','income')],
+                               by='iso2c')
+
+
+
+# Visualization -----------------------------------------------------------
+# Animation with flag (arrival data)====
+static_plot <- df_formatted_flag %>%
+  filter(Year %in% 2018) %>% 
+  ggplot(.) +
+  aes(x=rank, group=Country, fill=Country)+
+  geom_bar(aes(y=Value, fill=Country, group=Country), stat="identity")+
+  geom_text(aes(y = 0, label = Country, hjust = 1), size=2.5)+
+  geom_text(aes(y = max(Value)/2, label = scales::comma(Value)), size = 5)+
+  geom_flag(aes(y = max(Value)/10, country=iso2c))+ 
+  scale_x_reverse()+
+  xlab("Country") + 
+  ggtitle("International Tourist Arrivals 2018 (Thousands)")+
+  theme_minimal()+
+  theme(axis.line=element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks=element_blank(),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        legend.position = "none",
+        plot.margin = margin(0, 2, 0, 5, "cm"),
+        plot.title = element_text(size = 14, hjust = 0.5, face = "bold",
+                                  colour = "black", vjust = 0, margin=margin(0,0,0,0)))+
+  coord_flip(clip="off")
+
+
+ggsave(plot=static_plot, filename="plt.png", width = 20, height = 80, units = "cm")
+
+animation <- static_plot + transition_time(as.integer(Year))  +
+  labs(title = "International Tourist Arrivals (Thousands). Year: {frame_time}")
+
+animate(animation,fps = 20,end_pause = 120, duration=60, rewind=FALSE)
+
+
+
+
+
+# Facet wrap with bars (tourist arrivals)====
+static_plot <- df_formatted_flag %>% 
+  ggplot(.) +
+  geom_bar(aes(x=Year, y=Value, fill=Region), stat="identity")+
+  ggtitle("International Tourist Arrivals 1995-2018 (Thousands)")+
+  theme_minimal()+
+  theme(legend.position = "none")+
+  facet_wrap(vars(income, Country), ncol=10, shrink=FALSE)
+
+
+ggsave(plot=static_plot, filename="plt.png", width=100, height=100, units = "cm", limitsize=FALSE)
+
+
+
+# Facet wrap with line (tourist arrivals) ====
+options(scipen=999)
+library(directlabels)
+df_rank_by_region <- df_rank_by_region %>% 
+  filter((!Value %in% 0))
+
+
+static_plot <- df_rank_by_region %>%
+  ggplot(.) +
+  geom_line(aes(x=Year, y=rank, color=Country), stat="identity", linetype="dashed")+
+  ggtitle("International Tourist Arrivals 1995-2018 (Thousands)")+
+  #geom_dl(aes(x=Year, y=rank, label = Country), method = list(dl.combine("last.points", "first.points"), cex = 0.8))+
+  geom_flag(data=subset(df_rank_by_region, Year %in% c(2018,1995)), aes(x=Year, y = rank, country=iso2c, size=6))+
+  theme_minimal()+
+  theme(legend.position = "none")+
+  facet_wrap(Region~., scales="free")+
+  scale_y_reverse()
+
+
+
+ggsave(plot=static_plot, filename="plt.png", width =30, height=30, units = "cm", limitsize=FALSE)
+
+
+
+# Data Cleaning for departures====
+
+#create a rank
+df_departures <- df_departures %>% group_by(Year, Country) %>% 
   summarise(Value = sum(Value)) %>% 
   mutate(rank = rank(-Value)) %>% 
   ungroup() 
 
 #add flag
-df_formatted_flag <- df_arrival %>% 
+df_formatted_flag <- df_departures %>% 
   mutate(iso2c = countrycode(Country, origin='country.name.en', destination='iso2c'))  %>% 
   mutate(iso2c = tolower(iso2c)) %>%
   filter(iso2c != "NA")
 
-#group countries based region
-countries<- x$countries
+# Animation with flag (departures data)====
 
-#transform the iso2c column to lowercase
-countries <- countries %>% mutate(iso2c = tolower(iso2c))
-
-#left join with formatted data
-df_formatted_flag <- left_join(x=df_formatted_flag,
-                               y=countries[,c('iso2c','region')],
-                               by='iso2c')
-
-##visualizations below
-
-#flag animation
-static_plot <- df_formatted_flag %>%  
-  filter(rank <= 15) %>% 
+static_plot <- df_formatted_flag %>%
+  filter(Year %in% 2017, Value != 0) %>% 
   ggplot(.) +
   aes(x=rank, group=Country, fill=Country)+
   geom_bar(aes(y=Value, fill=Country, group=Country), stat="identity")+
-  geom_text(aes(y = 0, label = Country, hjust = 1), size=5)+
+  geom_text(aes(y = 0, label = Country, hjust = 1), size=2.5)+
   geom_text(aes(y = max(Value)/2, label = scales::comma(Value)), size = 5)+
   geom_flag(aes(y = max(Value)/10, country=iso2c))+ 
   scale_x_reverse()+
   xlab("Country") + 
-  ggtitle("International Tourist Arrivals")+
+  ggtitle("International Tourist Departures 2017 (Thousands)")+
   theme_minimal()+
   theme(axis.line=element_blank(),
         axis.text.x=element_blank(),
@@ -131,53 +306,12 @@ static_plot <- df_formatted_flag %>%
                                   colour = "black", vjust = 0))+
   coord_flip(clip="off")
 
-animation <- static_plot + transition_time(as.integer(Year))  +
-  labs(title = "International Tourist Arrivals. Year: {frame_time}")
-
-animate(animation,fps = 10,end_pause = 60, duration=30)
 
 
-#show only year 2018
-
-static_plot <- df_formatted_flag %>%  
-  filter(Year %in% 2018, Value != 0) %>% 
-  ggplot(.) +
-  aes(x=rank, group=Country, fill=Country)+
-  geom_bar(aes(y=Value, fill=Country, group=Country), stat="identity")+
-  geom_text(aes(y = 0, label = Country, hjust = 1), size=5)+
-  geom_text(aes(y = max(Value)/2, label = scales::comma(Value)), size = 5)+
-  geom_flag(aes(y = max(Value)/10, country=iso2c))+ 
-  scale_x_reverse()+
-  xlab("Country") + 
-  ggtitle("International Tourist Arrivals 2018")+
-  theme_minimal()+
-  theme(axis.line=element_blank(),
-        axis.text.x=element_blank(),
-        axis.text.y=element_blank(),
-        axis.ticks=element_blank(),
-        axis.title.x=element_blank(),
-        axis.title.y=element_blank(),
-        legend.position = "none",
-        plot.margin = margin(0, 2, 0, 5, "cm"),
-        plot.title = element_text(size = 14, hjust = 0.5, face = "bold",
-                                  colour = "black", vjust = 0))+
-  coord_flip(clip="off")
-static_plot
-
-#save it
 ggsave(plot=static_plot, filename="plt.png", width = 20, height = 80, units = "cm")
 
 
-#facet_wrap every country
-static_plot <- df_formatted_flag %>% 
-  filter(!(region %in% NA)) %>%
-  ggplot(.) +
-  geom_bar(aes(x=Year, y=Value, fill=region), stat="identity")+
-  ggtitle("International Tourist Arrivals 1995-2018 (Thousands)")+
-  theme_minimal()+
-  theme(legend.position = "none")+
-  facet_wrap(Country~., scales="free", ncol=10)
+animation <- static_plot + transition_time(as.integer(Year))  +
+  labs(title = "International Tourist Departures (Thousands). Year: {frame_time}")
 
-static_plot
-
-ggsave(plot=static_plot, filename="plt.png", width =100, height=100, units = "cm", limitsize=FALSE)
+animate(animation, renderer=av_renderer("unwto.mp4"), fps = 20,end_pause = 120, duration=60, rewind=FALSE)
