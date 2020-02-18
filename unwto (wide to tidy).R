@@ -192,16 +192,17 @@ df_rank_by_region <- left_join(x=df_rank_by_region,
 
 # Visualization -----------------------------------------------------------
 # Animation with flag (arrival data)====
-static_plot <- df_formatted_flag %>%
+static_plot <- df_formatted_flag %>%  
+  filter(rank <= 15) %>% 
   ggplot(.) +
   aes(x=rank, group=Country, fill=Country)+
   geom_bar(aes(y=Value, fill=Country, group=Country), stat="identity")+
-  geom_text(aes(y = 0, label = Country, hjust = 1), size=2.5)+
+  geom_text(aes(y = 0, label = Country, hjust = 1), size=5)+
   geom_text(aes(y = max(Value)/2, label = scales::comma(Value)), size = 5)+
   geom_flag(aes(y = max(Value)/10, country=iso2c))+ 
   scale_x_reverse()+
   xlab("Country") + 
-  ggtitle("International Tourist Arrivals 2018 (Thousands)")+
+  ggtitle("International Tourist Arrivals")+
   theme_minimal()+
   theme(axis.line=element_blank(),
         axis.text.x=element_blank(),
@@ -212,14 +213,11 @@ static_plot <- df_formatted_flag %>%
         legend.position = "none",
         plot.margin = margin(0, 2, 0, 5, "cm"),
         plot.title = element_text(size = 14, hjust = 0.5, face = "bold",
-                                  colour = "black", vjust = 0, margin=margin(0,0,0,0)))+
+                                  colour = "black", vjust = 0))+
   coord_flip(clip="off")
-
-
 animation <- static_plot + transition_time(as.integer(Year))  +
-  labs(title = "International Tourist Arrivals (Thousands). Year: {frame_time}")
-
-animate(animation, renderer=av_renderer("unwto.mp4"), fps = 20,end_pause = 120, duration=60, rewind=FALSE)
+  labs(title = "International Tourist Arrivals. Year: {frame_time}")
+animate(animation,fps = 10,end_pause = 60, duration=30)
 
 
 
@@ -280,7 +278,7 @@ df_formatted_flag <- df_departures %>%
 # Animation with flag (departures data)====
 
 static_plot <- df_formatted_flag %>%
-  #filter(Year %in% 2017, Value != 0) %>% 
+  filter(Rank <= 15, Value != 0) %>% 
   ggplot(.) +
   aes(x=rank, group=Country, fill=Country)+
   geom_bar(aes(y=Value, fill=Country, group=Country), stat="identity")+
