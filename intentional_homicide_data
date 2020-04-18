@@ -1,0 +1,65 @@
+#this script will transform intentional victims homicide data hosted in UNDATA
+#Load Libraries----
+library(tidyverse)
+library(janitor)
+library(readxl)
+
+
+#download file from UNDATA
+temp.file <- paste(tempfile(),".xlsx",sep = "")
+download.file("http://data.un.org/Handlers/DocumentDownloadHandler.ashx?id=407&t=bin", temp.file, mode="wb")
+
+df <- read_excel(temp.file, skip = 5)
+
+#clean column names with janitor
+df <- df %>% clean_names 
+
+#filter one variable as an example
+df <- df %>% select(1:21) 
+
+#convert to long data
+df<- df %>% gather(-region, -subregion, -unodc_name,-source, key="year", value="value")
+
+#doesn't work, why?
+#df %>% pivot_longer(-Region, -Subregion, -`UNODC Name`,-Source, names_to = "Year", values_to = "Value")
+
+#extract year
+df <- df %>% mutate(year = str_sub(year,start=2, end=5))
+
+#filter out NA
+df <- df %>% filter(!(subregion) %in% NA)
+
+#name variable
+df <- df %>% mutate(variable = "total_number_of_victims_of_intentional_homicide")
+
+#convert chars as factor  
+df <- df %>% mutate_at(vars(region,subregion,source,unodc_name,variable), list(as_factor))
+
+#filter region of interest
+df <- df %>% filter(subregion %in% c("Northern America", "Eastern Asia", "Australia and New Zealand", "South-Eastern Asia")) 
+
+
+#visualization
+v<- df %>% ggplot(.) + 
+  aes(x=as.integer(year), y=value, fill=subregion) + 
+  geom_bar(stat="identity")+
+  facet_wrap(vars(subregion, unodc_name), scales = "free")+
+  labs(title = "Intentional homicide victims, total counts",
+        subtitle = "Total number of victims of intentional homicide",
+        caption = "United Nations Office on Drugs and Crime")+
+  xlab("Year")+
+  ylab("Victims")+
+  theme_minimal()+
+  theme(strip.text = element_text(size=14),
+        axis.text.x = element_text(size=14),
+        axis.text.y = element_text(size=14),
+        plot.title = element_text(size = 20, face = "bold",
+                                  colour = "black", vjust = 0),
+        plot.subtitle = element_text(size = 15, face = "italic",
+                                  colour = "black", vjust = 0),
+        plot.margin = margin(2, 2, 2, 2, "cm"))
+
+
+
+ggsave(v, file=paste0("homicide.png"), width=120, height=60, units = "cm")
+ 
