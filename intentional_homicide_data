@@ -14,7 +14,7 @@ df <- read_excel(temp.file, skip = 5)
 #clean column names with janitor
 df <- df %>% clean_names 
 
-#filter one variable as an example
+#select columns we only need
 df <- df %>% select(1:21) 
 
 #convert to long data
