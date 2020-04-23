@@ -1,0 +1,40 @@
+#this chart will create a graph that shows All Adults(15+) upper estimate deaths from UNAIDS data
+
+library(tidyverse)
+library(scales)
+library(janitor)
+
+#get the file 
+#original file is here: http://data.un.org/Handlers/DownloadHandler.ashx?DataFilter=inID:33&DataMartId=UNAIDS&Format=csv&c=1,2,3,4,5,6&s=crEngName:asc,sgvEngName:asc,timeEngName:desc
+df <- read.csv("https://raw.githubusercontent.com/calvindw/datasets/a7b87f0211dd62944f0717792f795aeb28bdc5df/UNdata_Export_20200422_172837186.csv")
+
+#clean column names with janitor
+df <- df %>% clean_names 
+
+#prevent the academic notation
+options(scipen = 999)
+
+#filter adults (15+) variables and "all countries"
+df_x <- df %>% filter(subgroup  %in% "Adults (15+) upper estimate")  %>% 
+               filter(!(country_or_area %in% "All countries"))
+
+#visualize
+v <- df_x %>% 
+  ggplot(.) +
+  aes(x=as.integer(year), y=value)+
+  geom_bar(fill="red",stat="identity")+
+  labs(title="AIDS Related Death",
+       subtitle="1990-2014, Adults(15+) Upper Estimate",
+       caption = "Source: UNAIDS")+
+  theme_minimal()+
+  ylab("Deaths")+
+  xlab("Year")+
+  facet_wrap(vars(country_or_area), scales="free")+
+  theme(plot.title = element_text(size = 20, face = "bold",
+                            colour = "black", vjust = 0),
+        plot.subtitle = element_text(size = 15, face = "italic",
+                             colour = "black", vjust = 0))
+
+
+#save it
+ggsave(plot=v, filename="plt.png",height = 40, width = 80, units="cm", limitsize = FALSE)
