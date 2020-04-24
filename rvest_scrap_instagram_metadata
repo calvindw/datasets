@@ -1,0 +1,85 @@
+library(rvest)
+library(tidyverse)
+library(readxl)
+
+#scrap metadata from instagram
+
+#create a dataframe of instagram posts we want to scrap, we will scrap three posts from Apple's IG account
+df <- c("https://www.instagram.com/p/B9MyCgSl9TA/",
+        "https://www.instagram.com/p/B9KMml4luOx/",
+        "https://www.instagram.com/p/B9H4P-slv6g/")
+
+
+#scrap URL (redundant, but why not)
+url <- sapply(df, function(url){
+  url %>% 
+    as.character() %>% 
+    read_html() %>% 
+    html_nodes(xpath = '//link[@rel="canonical"]') %>% 
+    html_attr('href')
+}) %>% 
+  data.frame(stringsAsFactors = FALSE)
+
+#scrap description (snippet of content) 
+description <- sapply(df, function(url){
+  url %>% 
+    as.character() %>% 
+    read_html() %>% 
+    html_nodes(xpath = '//meta[@property="og:description"]') %>% 
+    html_attr('content')
+}) %>% 
+  data.frame(stringsAsFactors = FALSE)
+
+#scrap image URL
+url_image <- sapply(df, function(url){
+  url %>% 
+    as.character() %>% 
+    read_html() %>% 
+    html_nodes(xpath = '//meta[@property="og:image"]') %>% 
+    html_attr('content')
+}) %>% 
+  data.frame(stringsAsFactors = FALSE)
+
+#scrap title
+title <- sapply(df, function(url){
+  url %>% 
+    as.character() %>% 
+    read_html() %>% 
+    html_nodes(xpath = '//meta[@property="og:title"]') %>% 
+    html_attr('content')
+}) %>% 
+  data.frame(stringsAsFactors = FALSE)
+
+#scrap date (doesn't work anymore)
+date <- sapply(df, function(url){
+  url %>% 
+    as.character() %>% 
+    read_html() %>% 
+    html_nodes(xpath = '//meta[@property="og:datetime"]') %>% 
+    html_attr('content')
+}) %>% 
+  data.frame(stringsAsFactors = FALSE)
+
+#create a dataframe
+df <- cbind(url, description, url_image, title)
+
+#reset index
+rownames(df) <- NULL
+
+#rename columns
+colnames(df) <- c("url", "description", "url_image", "title") 
+
+#split description column to extract likes and comments numbers
+dfx <- df %>% tidyr::separate(., col=description,into=paste("comments"), sep="Comments") 
+
+#split comments column to separate the number of likes
+df <- df %>% tidyr::separate(., col=comments,into=paste("likes",1:2), sep="Likes") 
+
+#rename columns
+colnames(df) <- c("url", "likes", "comments", "url_image", "title") 
+
+#clean comments column
+vars_to_replace = c(", " = " ")
+
+df <- df %>% mutate_at(vars(comments), str_replace_all, pattern=vars_to_replace)
+
