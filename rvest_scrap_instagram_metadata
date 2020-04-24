@@ -55,7 +55,7 @@ date <- sapply(df, function(url){
   url %>% 
     as.character() %>% 
     read_html() %>% 
-    html_nodes(xpath = '//meta[@property="og:datetime"]') %>% 
+    html_nodes(xpath = '//meta[@property="og:date"]') %>% 
     html_attr('content')
 }) %>% 
   data.frame(stringsAsFactors = FALSE)
