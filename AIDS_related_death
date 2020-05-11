@@ -37,7 +37,7 @@ v <- df_x %>%
   aes(x=subgroup, y=value,fill=subgroup)+
   geom_bar(stat="identity", position = "dodge")+
   labs(title="AIDS Related Deaths across regions",
-       subtitle="Year 2014",
+       subtitle="Year 2014\n",
        caption = "Source: UNAIDS")+
   theme_minimal()+
   ylab("Deaths\n")+
@@ -53,7 +53,8 @@ v <- df_x %>%
         axis.text = element_text(size = 15),
         axis.title = element_text(size = 18),
         legend.text = element_text(size = 15),
-        legend.title = element_text(size = 18))+
+        legend.title = element_text(size = 18),
+        panel.spacing = unit(4, "lines"))+
   scale_x_discrete(labels = wrap_format(10))
 
 
